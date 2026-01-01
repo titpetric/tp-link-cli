@@ -1,0 +1,23 @@
+version: '3'
+
+tasks:
+  default:
+    desc: 'Check last BRZINA message and send reply if needed'
+    vars:
+      TARGET_NUMBER: '13909'
+      TRIGGER_PATTERN: 'BRZINA'
+      RESPONSE_MESSAGE: 'brzina'
+    cmds:
+      - |
+        LAST_BRZINA=$(./tp-link-cli sms list --json | jq -r '.[] | select(.content | contains("{{.TRIGGER_PATTERN}}")) | .receivedTime' | head -1)
+        LAST_SENT=$(./tp-link-cli sms list --folder=sent --json | jq -r '.[] | select(.to == "{{.TARGET_NUMBER}}") | .sendTime' | head -1)
+
+        echo "Last BRZINA received: $LAST_BRZINA"
+        echo "Last response sent: $LAST_SENT"
+
+        if [ -z "$LAST_SENT" ] || [ "$LAST_SENT" -lt "$LAST_BRZINA" ]; then
+          ./tp-link-cli sms send {{.TARGET_NUMBER}} "{{.RESPONSE_MESSAGE}}" --host={{.ROUTER_HOST}} --auth={{.ROUTER_AUTH}}
+          ./tp-link-cli sms send 0038631265642 "Quota router reset after 200G limit."
+        else
+          echo "Already responded to this message"
+        fi
