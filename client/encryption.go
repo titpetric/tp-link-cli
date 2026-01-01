@@ -182,29 +182,47 @@ func NewRSAKey(nHex string, eHex string) (*RSAKey, error) {
 	return &RSAKey{n: n, e: e}, nil
 }
 
-// Encrypt performs RSA encryption on plaintext
+// Encrypt performs RSA encryption on plaintext, supporting block-wise encryption
+// for plaintexts longer than the RSA block size (matching Python implementation)
 func (r *RSAKey) Encrypt(plaintext string) string {
-	m := r.noPadding(plaintext)
-	if m == nil {
-		return ""
+	blockSize := (r.n.BitLen() + 7) >> 3  // e.g., 64 bytes for RSA-512
+	blockSizeNopadding := blockSize - 11   // For PKCS#1 v1.5 padding
+	
+	var result string
+	var startIdx int
+	
+	// Process plaintext in chunks
+	for startIdx < len(plaintext) {
+		endIdx := startIdx + blockSizeNopadding
+		if endIdx > len(plaintext) {
+			endIdx = len(plaintext)
+		}
+		
+		chunk := plaintext[startIdx:endIdx]
+		m := r.noPaddingWithSize(chunk, blockSize)
+		if m == nil {
+			return ""
+		}
+		
+		c := new(big.Int)
+		c.Exp(m, big.NewInt(r.e), r.n)
+		
+		hexStr := fmt.Sprintf("%x", c)
+		// Pad to the full RSA modulus size in hex
+		expectedLen := (r.n.BitLen() + 3) / 4
+		for len(hexStr) < expectedLen {
+			hexStr = "0" + hexStr
+		}
+		result += hexStr
+		
+		startIdx = endIdx
 	}
-
-	c := new(big.Int)
-	c.Exp(m, big.NewInt(r.e), r.n)
-
-	hexStr := fmt.Sprintf("%x", c)
-	// Pad to the full RSA modulus size in hex
-	// RSA-512 = 64 bytes = 128 hex chars
-	expectedLen := (r.n.BitLen() + 3) / 4 // Convert bits to hex chars
-	for len(hexStr) < expectedLen {
-		hexStr = "0" + hexStr
-	}
-	return hexStr
+	
+	return result
 }
 
-// noPadding converts string to big.Int with UTF-8 encoding
-func (r *RSAKey) noPadding(s string) *big.Int {
-	blockSize := (r.n.BitLen() + 7) >> 3
+// noPaddingWithSize converts string to big.Int with UTF-8 encoding, using specified block size
+func (r *RSAKey) noPaddingWithSize(s string, blockSize int) *big.Int {
 	byteArray := make([]byte, blockSize)
 
 	i := 0
@@ -217,20 +235,32 @@ func (r *RSAKey) noPadding(s string) *big.Int {
 		} else if ch < 2048 {
 			byteArray[j] = byte((ch & 63) | 128)
 			j++
-			byteArray[j] = byte((ch >> 6) | 192)
-			j++
+			if j < blockSize {
+				byteArray[j] = byte((ch >> 6) | 192)
+				j++
+			}
 		} else {
 			byteArray[j] = byte((ch & 63) | 128)
 			j++
-			byteArray[j] = byte(((ch >> 6) & 63) | 128)
-			j++
-			byteArray[j] = byte((ch >> 12) | 224)
-			j++
+			if j < blockSize {
+				byteArray[j] = byte(((ch >> 6) & 63) | 128)
+				j++
+			}
+			if j < blockSize {
+				byteArray[j] = byte((ch >> 12) | 224)
+				j++
+			}
 		}
 		i++
 	}
 
 	return new(big.Int).SetBytes(byteArray)
+}
+
+// noPadding converts string to big.Int with UTF-8 encoding (kept for compatibility)
+func (r *RSAKey) noPadding(s string) *big.Int {
+	blockSize := (r.n.BitLen() + 7) >> 3
+	return r.noPaddingWithSize(s, blockSize)
 }
 
 // Encryption manages both AES and RSA encryption
