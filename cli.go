@@ -230,14 +230,13 @@ func (c *SMSCommand) DeleteSMSByID(ctx context.Context, msgID int) error {
 
 // outputTable formats SMS messages as a markdown table
 func (c *SMSCommand) outputTable(messages []model.SMSMessage) error {
-	table := tablewriter.NewWriter(os.Stdout)
-	table.SetAutoFormatHeaders(false)
-	table.SetColWidth(180) // Set a wider column width
+	var headers []string
+	rows := [][]string{}
 
 	if c.Folder == "inbox" {
-		table.SetHeader([]string{"#", "ID", "Sender", "Message", "Date/Age"})
+		headers = []string{"#", "ID", "Sender", "Message", "Date/Age"}
 		for i, msg := range messages {
-			table.Append([]string{
+			rows = append(rows, []string{
 				fmt.Sprintf("%d", i+1),
 				fmt.Sprintf("%d", msg.Index),
 				msg.From,
@@ -246,9 +245,9 @@ func (c *SMSCommand) outputTable(messages []model.SMSMessage) error {
 			})
 		}
 	} else {
-		table.SetHeader([]string{"#", "ID", "To", "Message", "Date/Age"})
+		headers = []string{"#", "ID", "To", "Message", "Date/Age"}
 		for i, msg := range messages {
-			table.Append([]string{
+			rows = append(rows, []string{
 				fmt.Sprintf("%d", i+1),
 				fmt.Sprintf("%d", msg.Index),
 				msg.To,
@@ -256,6 +255,16 @@ func (c *SMSCommand) outputTable(messages []model.SMSMessage) error {
 				formatTime(msg.SentTime),
 			})
 		}
+	}
+
+	table := tablewriter.NewTable(
+		os.Stdout,
+		tablewriter.WithHeader(headers),
+		tablewriter.WithColumnMax(180), // Set a wider column width
+	)
+
+	for _, row := range rows {
+		table.Append(row)
 	}
 
 	table.Render()
