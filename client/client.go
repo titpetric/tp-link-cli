@@ -22,8 +22,8 @@ type Options struct {
 
 // SMSClient communicates with TP-Link router.
 type SMSClient struct {
-	SessionID  string
-	TokenID    string
+	SessionID string
+	TokenID   string
 
 	baseURL    string
 	username   string
@@ -64,7 +64,7 @@ func NewSMSClient(opts *Options) (*SMSClient, error) {
 	}, nil
 }
 
-// Connect performs authentication and setup
+// Connect performs authentication and setup.
 func (c *SMSClient) Connect(ctx context.Context) error {
 	// Step 0: Fetch initial page to establish cookies
 	initReq, err := http.NewRequestWithContext(ctx, "GET", c.baseURL, nil)
@@ -269,7 +269,7 @@ func (c *SMSClient) Connect(ctx context.Context) error {
 	return nil
 }
 
-// execute sends an encrypted request to the router
+// execute sends an encrypted request to the router.
 func (c *SMSClient) execute(ctx context.Context, reqs []Request) (Response, error) {
 	// Ensure we're authenticated
 	if c.TokenID == "" {
@@ -488,7 +488,7 @@ func (c *SMSClient) Send(ctx context.Context, number, message string) (*model.Se
 	return result, nil
 }
 
-// rawToSMSMessage converts raw response data to SMSMessage
+// rawToSMSMessage converts raw response data to SMSMessage.
 func (c *SMSClient) rawToSMSMessage(obj map[string]interface{}, folder string) model.SMSMessage {
 	msg := model.SMSMessage{}
 
