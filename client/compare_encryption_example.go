@@ -4,7 +4,7 @@ import (
 	"fmt"
 )
 
-// ExampleCompareEncryption demonstrates encryption comparison with Python
+// ExampleCompareEncryption demonstrates encryption comparison with Python.
 func ExampleCompareEncryption() {
 	// Use fixed key/IV like Python would generate from a known timestamp
 	// From Python output: key=1767278241989203&iv=1767278241988901

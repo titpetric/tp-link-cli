@@ -1,3 +1,4 @@
+// Package client provides TP-Link router protocol handling.
 package client
 
 import (
@@ -8,16 +9,23 @@ import (
 	"time"
 )
 
+// Action method constants.
 const (
+	// ActGet is the Get action.
 	ActGet = 1
+	// ActSet is the Set action.
 	ActSet = 2
+	// ActDel is the Delete action.
 	ActDel = 4
-	ActGL  = 5
-	ActGS  = 6
+	// ActGL is the Get List action.
+	ActGL = 5
+	// ActGS is the Get Set action.
+	ActGS = 6
+	// ActCGI is the CGI action.
 	ActCGI = 8
 )
 
-// Request represents a router protocol request
+// Request represents a router protocol request.
 type Request struct {
 	Method     int
 	Controller string
@@ -25,21 +33,21 @@ type Request struct {
 	Attrs      interface{} // map[string]interface{} or []string
 }
 
-// Response represents a router protocol response
+// Response represents a router protocol response.
 type Response struct {
 	Error int
 	Data  []map[string]interface{}
 }
 
-// Protocol handles encoding and decoding of TP-Link router protocol messages
+// Protocol handles encoding and decoding of TP-Link router protocol messages.
 type Protocol struct{}
 
-// NewProtocol creates a new Protocol handler
+// NewProtocol creates a new Protocol handler.
 func NewProtocol() *Protocol {
 	return &Protocol{}
 }
 
-// MakeDataFrame creates a protocol data frame from a request
+// MakeDataFrame creates a protocol data frame from a request.
 func (p *Protocol) MakeDataFrame(requests []Request) string {
 	var sections []map[string]interface{}
 
@@ -112,7 +120,7 @@ func (p *Protocol) toKV(data interface{}) string {
 	return ""
 }
 
-// FromDataFrame parses a protocol data frame response
+// FromDataFrame parses a protocol data frame response.
 func (p *Protocol) FromDataFrame(frame string) Response {
 	lines := strings.Split(strings.TrimSpace(frame), "\n")
 	var data []map[string]interface{}
@@ -157,7 +165,7 @@ func (p *Protocol) FromDataFrame(frame string) Response {
 	}
 }
 
-// PrettifyResponse converts raw response data to proper types
+// PrettifyResponse converts raw response data to proper types.
 func (p *Protocol) PrettifyResponse(resp Response) Response {
 	intAttrs := map[string]bool{
 		"index":      true,

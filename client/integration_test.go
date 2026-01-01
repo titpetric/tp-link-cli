@@ -1,3 +1,4 @@
+//go:build integration
 // +build integration
 
 package client
@@ -28,7 +29,7 @@ func defaultIntegrationConfig() *IntegrationTestConfig {
 // Run with: go test -v -tags=integration -run TestIntegration_Login
 func TestIntegration_Login(t *testing.T) {
 	config := defaultIntegrationConfig()
-	
+
 	t.Logf("Testing login to %s with user %s", config.Host, config.Username)
 
 	opts := &Options{
@@ -63,7 +64,7 @@ func TestIntegration_Login(t *testing.T) {
 // Run with: go test -v -tags=integration -run TestIntegration_ListSMS
 func TestIntegration_ListSMS(t *testing.T) {
 	config := defaultIntegrationConfig()
-	
+
 	t.Logf("Testing SMS list on %s", config.Host)
 
 	opts := &Options{
@@ -93,7 +94,7 @@ func TestIntegration_ListSMS(t *testing.T) {
 	t.Logf("✓ SMS List successful!")
 	t.Logf("✓ Message count: %d", len(resp.Data))
 	t.Logf("✓ Error code: %d (0 = no error)", resp.Error)
-	
+
 	for i, msg := range resp.Data {
 		t.Logf("  [%d] From=%s, Content=%s, Time=%v", i, msg.From, msg.Content, msg.RecvTime)
 	}
@@ -103,7 +104,7 @@ func TestIntegration_ListSMS(t *testing.T) {
 // Run with: go test -v -tags=integration -run TestIntegration_ReadSMS
 func TestIntegration_ReadSMS(t *testing.T) {
 	config := defaultIntegrationConfig()
-	
+
 	t.Logf("Testing SMS read on %s", config.Host)
 
 	opts := &Options{
@@ -117,7 +118,7 @@ func TestIntegration_ReadSMS(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	
+
 	// First list to get an existing message
 	listResp, err := client.List(ctx, "inbox")
 	if err != nil {
@@ -147,7 +148,7 @@ func TestIntegration_ReadSMS(t *testing.T) {
 
 	t.Logf("✓ SMS Read successful!")
 	t.Logf("✓ Error code: %d (0 = no error)", readResp.Error)
-	
+
 	if len(readResp.Data) > 0 {
 		msg := readResp.Data[0]
 		t.Logf("  From: %s", msg.From)
@@ -160,7 +161,7 @@ func TestIntegration_ReadSMS(t *testing.T) {
 // Run with: go test -v -tags=integration -run TestIntegration_EncryptionParameters
 func TestIntegration_EncryptionParameters(t *testing.T) {
 	config := defaultIntegrationConfig()
-	
+
 	t.Logf("Testing encryption parameter retrieval from %s", config.Host)
 
 	opts := &Options{
@@ -174,7 +175,7 @@ func TestIntegration_EncryptionParameters(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	
+
 	// Attempt to fetch encryption parameters via connect
 	err = client.connect(ctx)
 	if err != nil {
@@ -198,7 +199,7 @@ func TestIntegration_EncryptionParameters(t *testing.T) {
 // Run with: go test -v -tags=integration -run TestIntegration_FullWorkflow
 func TestIntegration_FullWorkflow(t *testing.T) {
 	config := defaultIntegrationConfig()
-	
+
 	t.Logf("Testing full SMS workflow on %s", config.Host)
 
 	opts := &Options{
@@ -257,7 +258,7 @@ func TestIntegration_FullWorkflow(t *testing.T) {
 // Run with: go test -v -tags=integration -run TestIntegration_CookieHandling
 func TestIntegration_CookieHandling(t *testing.T) {
 	config := defaultIntegrationConfig()
-	
+
 	t.Logf("Testing cookie handling on %s", config.Host)
 
 	opts := &Options{

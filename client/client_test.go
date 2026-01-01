@@ -1,79 +1,9 @@
 package client
 
 import (
-	"context"
 	"fmt"
 	"testing"
 )
-
-// TestLoginIntegration tests login against real router at 192.168.1.1
-// This is an integration test that requires access to the router
-func TestLoginIntegration(t *testing.T) {
-	// Skip if not in integration test mode
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
-	}
-
-	opts := &Options{
-		Auth: "admin:default",
-		Host: "192.168.1.1",
-	}
-
-	client, err := NewSMSClient(opts)
-	if err != nil {
-		t.Fatalf("Failed to create client: %v", err)
-	}
-
-	ctx := context.Background()
-	err = client.connect(ctx)
-	if err != nil {
-		t.Fatalf("Login failed: %v", err)
-	}
-
-	if client.sessionID == "" {
-		t.Error("Session ID is empty after login")
-	}
-	if client.tokenID == "" {
-		t.Error("Token ID is empty after login")
-	}
-
-	t.Logf("Login successful!")
-	t.Logf("Session ID: %s", client.sessionID)
-	t.Logf("Token ID: %s", client.tokenID)
-}
-
-// TestSMSListIntegration tests listing SMS messages from the router
-func TestSMSListIntegration(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
-	}
-
-	opts := &Options{
-		Auth: "admin:default",
-		Host: "192.168.1.1",
-	}
-
-	client, err := NewSMSClient(opts)
-	if err != nil {
-		t.Fatalf("Failed to create client: %v", err)
-	}
-
-	ctx := context.Background()
-	resp, err := client.List(ctx, "inbox")
-	if err != nil {
-		t.Fatalf("List failed: %v", err)
-	}
-
-	if resp == nil {
-		t.Error("Response is nil")
-	}
-
-	t.Logf("SMS List successful!")
-	t.Logf("Message count: %d", len(resp.Data))
-	for i, msg := range resp.Data {
-		t.Logf("Message %d: From=%s, Content=%s", i, msg.From, msg.Content)
-	}
-}
 
 // TestEncryptionMatch tests that encryption matches Python implementation
 func TestEncryptionMatch(t *testing.T) {

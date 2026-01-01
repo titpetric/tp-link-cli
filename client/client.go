@@ -7,32 +7,33 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
-	"os"
 	"regexp"
 	"strings"
 	"time"
-	"tp-link-cli/model"
+
+	"github.com/titpetric/tp-link-cli/model"
 )
 
-// Options holds client configuration
+// Options holds client configuration.
 type Options struct {
 	Auth string // "username:password"
 	Host string // "192.168.1.1" or "http://192.168.1.1"
 }
 
-// SMSClient communicates with TP-Link router
+// SMSClient communicates with TP-Link router.
 type SMSClient struct {
+	SessionID  string
+	TokenID    string
+
 	baseURL    string
 	username   string
 	password   string
-	sessionID  string
-	tokenID    string
 	enc        *Encryption
 	proto      *Protocol
 	httpClient *http.Client
 }
 
-// NewSMSClient creates a new SMS client
+// NewSMSClient creates a new SMS client.
 func NewSMSClient(opts *Options) (*SMSClient, error) {
 	// Parse auth
 	var username, password string
@@ -63,8 +64,8 @@ func NewSMSClient(opts *Options) (*SMSClient, error) {
 	}, nil
 }
 
-// connect performs authentication and setup
-func (c *SMSClient) connect(ctx context.Context) error {
+// Connect performs authentication and setup
+func (c *SMSClient) Connect(ctx context.Context) error {
 	// Step 0: Fetch initial page to establish cookies
 	initReq, err := http.NewRequestWithContext(ctx, "GET", c.baseURL, nil)
 	if err != nil {
@@ -167,29 +168,13 @@ func (c *SMSClient) connect(ctx context.Context) error {
 	authData := c.username + "\n" + c.password
 	encrypted := c.enc.AESEncrypt(authData, true)
 
-	// Debug output
-	fmt.Fprintf(os.Stderr, "DEBUG: Hash: %s\n", c.enc.hash)
-	fmt.Fprintf(os.Stderr, "DEBUG: Seq: %d\n", c.enc.seq)
-	fmt.Fprintf(os.Stderr, "DEBUG: AES Key String: %s\n", c.enc.aesKeyStr)
-	fmt.Fprintf(os.Stderr, "DEBUG: Encrypted Data (first 50 chars): %.50s...\n", encrypted.Data)
-	fmt.Fprintf(os.Stderr, "DEBUG: Encrypted Sign (first 50 chars): %.50s...\n", encrypted.Sign)
-
 	// URL encode the data - replace specific characters as per Python code
 	// data.replace('=', '%3D').replace('+', '%2B')
 	encodedData := strings.ReplaceAll(encrypted.Data, "=", "%3D")
 	encodedData = strings.ReplaceAll(encodedData, "+", "%2B")
 
-	fmt.Fprintf(os.Stderr, "DEBUG: Encoded Data: %s\n", encodedData)
-	fmt.Fprintf(os.Stderr, "DEBUG: Encrypted.Data was: %s\n", encrypted.Data)
-
 	loginURL := fmt.Sprintf("%s/cgi/login?data=%s&sign=%s&Action=1&LoginStatus=0",
 		c.baseURL, encodedData, encrypted.Sign)
-	
-	fmt.Fprintf(os.Stderr, "GO LOGIN REQUEST\n")
-	fmt.Fprintf(os.Stderr, "URL: %s\n", loginURL)
-	fmt.Fprintf(os.Stderr, "Encrypted data (plain): %s\n", encrypted.Data)
-	fmt.Fprintf(os.Stderr, "Encrypted data (encoded): %s\n", encodedData)
-	fmt.Fprintf(os.Stderr, "Signature: %s\n", encrypted.Sign)
 
 	authReq, err := http.NewRequestWithContext(ctx, "POST", loginURL, nil)
 	if err != nil {
@@ -207,60 +192,44 @@ func (c *SMSClient) connect(ctx context.Context) error {
 	authReq.Header.Set("Cookie", "loginErrorShow=1")
 	authReq.Header.Set("Origin", c.baseURL)
 
-	fmt.Fprintf(os.Stderr, "\nHeaders:\n")
-	for k, v := range authReq.Header {
-		fmt.Fprintf(os.Stderr, "  %s: %s\n", k, v[0])
-	}
-
 	authResp, err := c.httpClient.Do(authReq)
 	if err != nil {
 		return fmt.Errorf("authentication request failed: %w", err)
 	}
 	defer authResp.Body.Close()
-	
+
 	// Read response body
 	authRespBody, err := io.ReadAll(authResp.Body)
 	if err != nil {
 		return fmt.Errorf("failed to read auth response: %w", err)
 	}
-	
-	fmt.Fprintf(os.Stderr, "\nGO LOGIN RESPONSE\n")
-	fmt.Fprintf(os.Stderr, "Status: %d\n", authResp.StatusCode)
-	fmt.Fprintf(os.Stderr, "Body: %s\n", string(authRespBody))
-	fmt.Fprintf(os.Stderr, "Response Headers:\n")
-	for k, v := range authResp.Header {
-		fmt.Fprintf(os.Stderr, "  %s: %s\n", k, v[0])
+
+	// Verify successful authentication (error code 0)
+	if !strings.Contains(string(authRespBody), "$.ret=0;") {
+		return fmt.Errorf("authentication failed: %s", string(authRespBody))
 	}
 
 	// Step 5: Extract session ID from Set-Cookie
 	for _, cookie := range authResp.Cookies() {
-		fmt.Fprintf(os.Stderr, "DEBUG: Found cookie: %s=%s\n", cookie.Name, cookie.Value)
 		if cookie.Name == "JSESSIONID" {
-			c.sessionID = cookie.Value
+			c.SessionID = cookie.Value
 			break
 		}
 	}
-	
+
 	// Also check jar for cookies (cookiejar auto-populates)
-	if c.sessionID == "" && c.httpClient.Jar != nil {
-		fmt.Fprintf(os.Stderr, "DEBUG: Checking cookie jar...\n")
+	if c.SessionID == "" && c.httpClient.Jar != nil {
 		jarURL, _ := url.Parse(c.baseURL)
 		jarCookies := c.httpClient.Jar.Cookies(jarURL)
-		fmt.Fprintf(os.Stderr, "DEBUG: Jar cookies: %v\n", jarCookies)
 		for _, cookie := range jarCookies {
-			fmt.Fprintf(os.Stderr, "DEBUG: Jar cookie: %s=%s\n", cookie.Name, cookie.Value)
 			if cookie.Name == "JSESSIONID" {
-				c.sessionID = cookie.Value
+				c.SessionID = cookie.Value
 				break
 			}
 		}
 	}
-	
-	// Log auth response for debugging
-	fmt.Fprintf(os.Stderr, "DEBUG: Session ID: %s\n", c.sessionID)
-	fmt.Fprintf(os.Stderr, "DEBUG: All response cookies: %v\n", authResp.Cookies())
 
-	if c.sessionID == "" {
+	if c.SessionID == "" {
 		// Try to read response body for error details
 		return fmt.Errorf("failed to obtain session ID\nStatus: %d\nResponse: %s\nAuth Req URL: %s", authResp.StatusCode, string(authRespBody), loginURL)
 	}
@@ -272,7 +241,7 @@ func (c *SMSClient) connect(ctx context.Context) error {
 		return err
 	}
 	homeReq.Header.Set("Referer", c.baseURL)
-	homeReq.Header.Set("Cookie", "loginErrorShow=1; JSESSIONID="+c.sessionID)
+	homeReq.Header.Set("Cookie", "loginErrorShow=1; JSESSIONID="+c.SessionID)
 
 	homeResp, err := c.httpClient.Do(homeReq)
 	if err != nil {
@@ -295,7 +264,7 @@ func (c *SMSClient) connect(ctx context.Context) error {
 		}
 		return fmt.Errorf("failed to extract token ID from homepage\nResponse: %s", bodyStr)
 	}
-	c.tokenID = matches[1]
+	c.TokenID = matches[1]
 
 	return nil
 }
@@ -303,8 +272,8 @@ func (c *SMSClient) connect(ctx context.Context) error {
 // execute sends an encrypted request to the router
 func (c *SMSClient) execute(ctx context.Context, reqs []Request) (Response, error) {
 	// Ensure we're authenticated
-	if c.tokenID == "" {
-		if err := c.connect(ctx); err != nil {
+	if c.TokenID == "" {
+		if err := c.Connect(ctx); err != nil {
 			return Response{}, err
 		}
 	}
@@ -321,8 +290,8 @@ func (c *SMSClient) execute(ctx context.Context, reqs []Request) (Response, erro
 	}
 
 	req.Header.Set("Referer", c.baseURL)
-	req.Header.Set("Cookie", "loginErrorShow=1; JSESSIONID="+c.sessionID)
-	req.Header.Set("TokenID", c.tokenID)
+	req.Header.Set("Cookie", "loginErrorShow=1; JSESSIONID="+c.SessionID)
+	req.Header.Set("TokenID", c.TokenID)
 	req.Header.Set("Content-Type", "text/plain")
 
 	resp, err := c.httpClient.Do(req)
@@ -347,7 +316,7 @@ func (c *SMSClient) execute(ctx context.Context, reqs []Request) (Response, erro
 	return c.proto.PrettifyResponse(parsed), nil
 }
 
-// List retrieves SMS messages from the specified folder
+// List retrieves SMS messages from the specified folder.
 func (c *SMSClient) List(ctx context.Context, folder string) (*model.ListResponse, error) {
 	if folder == "" {
 		folder = "inbox"
@@ -355,31 +324,34 @@ func (c *SMSClient) List(ctx context.Context, folder string) (*model.ListRespons
 
 	var reqs []Request
 
-	// Reset cursor
-	reqs = append(reqs, Request{
-		Method:     ActSet,
-		Controller: "LTE_SMS_RECVMSGBOX",
-		Attrs: map[string]interface{}{
-			"PageNumber": 1,
-		},
-	})
-
 	// Get messages
-	var controller string
+	var boxController string
+	var msgController string
 	var attrs []string
 	if folder == "inbox" {
-		controller = "LTE_SMS_RECVMSGENTRY"
+		boxController = "LTE_SMS_RECVMSGBOX"
+		msgController = "LTE_SMS_RECVMSGENTRY"
 		attrs = []string{"index", "from", "content", "receivedTime", "unread"}
 	} else if folder == "sent" {
-		controller = "LTE_SMS_SENDMSGENTRY"
+		boxController = "LTE_SMS_SENDMSGBOX"
+		msgController = "LTE_SMS_SENDMSGENTRY"
 		attrs = []string{"index", "to", "content", "sendTime"}
 	} else {
 		return nil, fmt.Errorf("invalid folder: %s", folder)
 	}
 
+	// Reset cursor
+	reqs = append(reqs, Request{
+		Method:     ActSet,
+		Controller: boxController,
+		Attrs: map[string]interface{}{
+			"PageNumber": 1,
+		},
+	})
+
 	reqs = append(reqs, Request{
 		Method:     ActGL,
-		Controller: controller,
+		Controller: msgController,
 		Attrs:      attrs,
 	})
 
@@ -401,17 +373,20 @@ func (c *SMSClient) List(ctx context.Context, folder string) (*model.ListRespons
 	return result, nil
 }
 
-// Read retrieves a specific SMS message
+// Read retrieves a specific SMS message.
 func (c *SMSClient) Read(ctx context.Context, folder string, index int) (*model.ReadResponse, error) {
 	if folder == "" {
 		folder = "inbox"
 	}
 
 	var controller string
+	var attrs []string
 	if folder == "inbox" {
 		controller = "LTE_SMS_RECVMSGENTRY"
+		attrs = []string{"index", "from", "content", "receivedTime", "unread"}
 	} else if folder == "sent" {
 		controller = "LTE_SMS_SENDMSGENTRY"
+		attrs = []string{"index", "to", "content", "sendTime"}
 	} else {
 		return nil, fmt.Errorf("invalid folder: %s", folder)
 	}
@@ -421,7 +396,7 @@ func (c *SMSClient) Read(ctx context.Context, folder string, index int) (*model.
 			Method:     ActGet,
 			Controller: controller,
 			Stack:      fmt.Sprintf("%d,0,0,0,0,0", index),
-			Attrs:      []string{"index", "from", "content", "receivedTime", "unread"},
+			Attrs:      attrs,
 		},
 	}
 
@@ -442,7 +417,7 @@ func (c *SMSClient) Read(ctx context.Context, folder string, index int) (*model.
 	return result, nil
 }
 
-// Delete removes an SMS message
+// Delete removes an SMS message.
 func (c *SMSClient) Delete(ctx context.Context, folder string, index int) (*model.DeleteResponse, error) {
 	if folder == "" {
 		folder = "inbox"
@@ -482,7 +457,7 @@ func (c *SMSClient) Delete(ctx context.Context, folder string, index int) (*mode
 	return result, nil
 }
 
-// Send sends an SMS message
+// Send sends an SMS message.
 func (c *SMSClient) Send(ctx context.Context, number, message string) (*model.SendResponse, error) {
 	reqs := []Request{
 		{

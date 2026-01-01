@@ -9,13 +9,12 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
-	"os"
 	"strconv"
 	"strings"
 	"time"
 )
 
-// AES handles AES-128-CBC encryption/decryption
+// AES handles AES-128-CBC encryption/decryption.
 type AES struct {
 	key       []byte
 	iv        []byte
@@ -25,7 +24,7 @@ type AES struct {
 	ivNumStr  string // original iv string (preserves leading zeros)
 }
 
-// NewAES creates a new AES cipher with random key and IV
+// NewAES creates a new AES cipher with random key and IV.
 func NewAES() *AES {
 	a := &AES{}
 	a.genKey()
@@ -76,13 +75,13 @@ func utf8ParseToBytes(s string) []byte {
 	return result
 }
 
-// SetKey sets the AES key and IV from bytes
+// SetKey sets the AES key and IV from bytes.
 func (a *AES) SetKey(key, iv []byte) {
 	a.key = key
 	a.iv = iv
 }
 
-// SetKeyFromHex sets the AES key and IV from hex strings
+// SetKeyFromHex sets the AES key and IV from hex strings.
 func (a *AES) SetKeyFromHex(keyHex, ivHex string) error {
 	key, err := hex.DecodeString(keyHex)
 	if err != nil {
@@ -97,7 +96,7 @@ func (a *AES) SetKeyFromHex(keyHex, ivHex string) error {
 	return nil
 }
 
-// SetKeyFromNumeric sets the AES key and IV from numeric strings (like Python uses)
+// SetKeyFromNumeric sets the AES key and IV from numeric strings.
 func (a *AES) SetKeyFromNumeric(keyNum, ivNum string) {
 	a.key = utf8ParseToBytes(keyNum)
 	a.iv = utf8ParseToBytes(ivNum)
@@ -112,7 +111,7 @@ func (a *AES) SetKeyFromNumeric(keyNum, ivNum string) {
 	}
 }
 
-// GetKeyString returns the key in the format used by the router (numeric format like Python)
+// GetKeyString returns the key in the format used by the router.
 func (a *AES) GetKeyString() string {
 	// Use original string values if available to preserve leading zeros
 	if a.keyNumStr != "" && a.ivNumStr != "" {
@@ -121,7 +120,7 @@ func (a *AES) GetKeyString() string {
 	return fmt.Sprintf("key=%d&iv=%d", a.keyNum, a.ivNum)
 }
 
-// Encrypt encrypts plaintext using AES-128-CBC
+// Encrypt encrypts plaintext using AES-128-CBC.
 func (a *AES) Encrypt(plaintext string) string {
 	block, err := aes.NewCipher(a.key)
 	if err != nil {
@@ -142,7 +141,7 @@ func (a *AES) Encrypt(plaintext string) string {
 	return base64.StdEncoding.EncodeToString(ciphertext)
 }
 
-// Decrypt decrypts base64-encoded ciphertext using AES-128-CBC
+// Decrypt decrypts base64-encoded ciphertext using AES-128-CBC.
 func (a *AES) Decrypt(ciphertext string) (string, error) {
 	cipherBytes, err := base64.StdEncoding.DecodeString(ciphertext)
 	if err != nil {
@@ -165,13 +164,13 @@ func (a *AES) Decrypt(ciphertext string) (string, error) {
 	return string(plaintext), nil
 }
 
-// RSAKey handles RSA 512-bit operations
+// RSAKey handles RSA 512-bit operations.
 type RSAKey struct {
 	n *big.Int // modulus
 	e int64    // exponent
 }
 
-// NewRSAKey creates a new RSA key with given public key parameters
+// NewRSAKey creates a new RSA key with given public key parameters.
 func NewRSAKey(nHex string, eHex string) (*RSAKey, error) {
 	n := new(big.Int)
 	n.SetString(nHex, 16)
@@ -182,31 +181,30 @@ func NewRSAKey(nHex string, eHex string) (*RSAKey, error) {
 	return &RSAKey{n: n, e: e}, nil
 }
 
-// Encrypt performs RSA encryption on plaintext, supporting block-wise encryption
-// for plaintexts longer than the RSA block size (matching Python implementation)
+// Encrypt performs RSA encryption on plaintext with block-wise support.
 func (r *RSAKey) Encrypt(plaintext string) string {
-	blockSize := (r.n.BitLen() + 7) >> 3  // e.g., 64 bytes for RSA-512
-	blockSizeNopadding := blockSize - 11   // For PKCS#1 v1.5 padding
-	
+	blockSize := (r.n.BitLen() + 7) >> 3 // e.g., 64 bytes for RSA-512
+	blockSizeNopadding := blockSize - 11 // For PKCS#1 v1.5 padding
+
 	var result string
 	var startIdx int
-	
+
 	// Process plaintext in chunks
 	for startIdx < len(plaintext) {
 		endIdx := startIdx + blockSizeNopadding
 		if endIdx > len(plaintext) {
 			endIdx = len(plaintext)
 		}
-		
+
 		chunk := plaintext[startIdx:endIdx]
 		m := r.noPaddingWithSize(chunk, blockSize)
 		if m == nil {
 			return ""
 		}
-		
+
 		c := new(big.Int)
 		c.Exp(m, big.NewInt(r.e), r.n)
-		
+
 		hexStr := fmt.Sprintf("%x", c)
 		// Pad to the full RSA modulus size in hex
 		expectedLen := (r.n.BitLen() + 3) / 4
@@ -214,10 +212,10 @@ func (r *RSAKey) Encrypt(plaintext string) string {
 			hexStr = "0" + hexStr
 		}
 		result += hexStr
-		
+
 		startIdx = endIdx
 	}
-	
+
 	return result
 }
 
@@ -263,7 +261,7 @@ func (r *RSAKey) noPadding(s string) *big.Int {
 	return r.noPaddingWithSize(s, blockSize)
 }
 
-// Encryption manages both AES and RSA encryption
+// Encryption manages both AES and RSA encryption.
 type Encryption struct {
 	aes       *AES
 	rsa       *RSAKey
@@ -272,25 +270,25 @@ type Encryption struct {
 	hash      string
 }
 
-// NewEncryption creates a new Encryption manager
+// NewEncryption creates a new Encryption manager.
 func NewEncryption() *Encryption {
 	return &Encryption{
 		aes: NewAES(),
 	}
 }
 
-// SetHash computes hash from username and password
+// SetHash computes hash from username and password.
 func (e *Encryption) SetHash(username, password string) {
 	h := md5.Sum([]byte(username + password))
 	e.hash = fmt.Sprintf("%x", h)
 }
 
-// SetSeq sets the sequence number
+// SetSeq sets the sequence number.
 func (e *Encryption) SetSeq(seq int) {
 	e.seq = seq
 }
 
-// SetRSAKey configures the RSA public key
+// SetRSAKey configures the RSA public key.
 func (e *Encryption) SetRSAKey(nHex, eHex string) error {
 	rsa, err := NewRSAKey(nHex, eHex)
 	if err != nil {
@@ -300,31 +298,31 @@ func (e *Encryption) SetRSAKey(nHex, eHex string) error {
 	return nil
 }
 
-// GenAESKey generates a new AES key and IV
+// GenAESKey generates a new AES key and IV.
 func (e *Encryption) GenAESKey() {
 	e.aes.genKey()
 	e.aesKeyStr = e.aes.GetKeyString()
 }
 
-// GetAESKeyString returns the AES key string for authentication
+// GetAESKeyString returns the AES key string for authentication.
 func (e *Encryption) GetAESKeyString() string {
 	return e.aesKeyStr
 }
 
-// SetAESKey sets the AES key and IV from numeric strings
+// SetAESKey sets the AES key and IV from numeric strings.
 func (e *Encryption) SetAESKey(key, iv string) error {
 	e.aes.SetKeyFromNumeric(key, iv)
 	e.aesKeyStr = e.aes.GetKeyString()
 	return nil
 }
 
-// AESEncryptResult holds encrypted data and signature
+// AESEncryptResult holds encrypted data and signature.
 type AESEncryptResult struct {
 	Data string
 	Sign string
 }
 
-// AESEncrypt encrypts data with AES and signs with RSA
+// AESEncrypt encrypts data with AES and signs with RSA.
 func (e *Encryption) AESEncrypt(data string, isLogin bool) AESEncryptResult {
 	encrypted := e.aes.Encrypt(data)
 
@@ -336,16 +334,7 @@ func (e *Encryption) AESEncrypt(data string, isLogin bool) AESEncryptResult {
 	dataLen := len(encrypted)
 	signature += fmt.Sprintf("h=%s&s=%d", e.hash, e.seq+dataLen)
 
-	fmt.Fprintf(os.Stderr, "DEBUG AESEncrypt: plaintext: %q\n", data)
-	fmt.Fprintf(os.Stderr, "DEBUG AESEncrypt: encrypted (base64): %s\n", encrypted)
-	fmt.Fprintf(os.Stderr, "DEBUG AESEncrypt: encrypted length: %d\n", dataLen)
-	fmt.Fprintf(os.Stderr, "DEBUG AESEncrypt: aes_key_str: %s\n", e.aesKeyStr)
-	fmt.Fprintf(os.Stderr, "DEBUG AESEncrypt: hash: %s\n", e.hash)
-	fmt.Fprintf(os.Stderr, "DEBUG AESEncrypt: seq: %d\n", e.seq)
-	fmt.Fprintf(os.Stderr, "DEBUG AESEncrypt: data to sign: %s\n", signature)
-
 	signed := e.rsa.Encrypt(signature)
-	fmt.Fprintf(os.Stderr, "DEBUG AESEncrypt: rsa signature: %s\n", signed)
 
 	return AESEncryptResult{
 		Data: encrypted,
@@ -353,12 +342,12 @@ func (e *Encryption) AESEncrypt(data string, isLogin bool) AESEncryptResult {
 	}
 }
 
-// AESDecrypt decrypts AES-encrypted data
+// AESDecrypt decrypts AES-encrypted data.
 func (e *Encryption) AESDecrypt(data string) (string, error) {
 	return e.aes.Decrypt(data)
 }
 
-// ParseEncryptionParams extracts encryption parameters from getParm response
+// ParseEncryptionParams extracts encryption parameters from getParm response.
 func ParseEncryptionParams(response string) (ee, nn, seq string, err error) {
 	// Extract ee (exponent)
 	eeStart := strings.Index(response, `ee="`)
