@@ -1,6 +1,8 @@
 # TP Link CLI
 
-This is a basic TP Link CLI.
+This is a basic TP Link CLI. It provides an API over the routers SMS features.
+
+It's tested/compatible with Archer MR600.
 
 ```bash
 go install github.com/titpetric/tp-link-cli@latest
@@ -13,9 +15,9 @@ git clone github.com:titpetric/tp-link-cli.git
 cd tp-link-cli && go install .
 ```
 
-It's tested/compatible with Archer MR600. It's intended to be used for
-scripting jobs. I'm automating a challenge/response system based on ISP
-restrictions, but the CLI can be used as an SMS gateway.
+The tool is intended to be used for automation jobs. I'm automating a
+challenge/response system based on ISP restrictions, but the CLI can be
+used to implement an SMS gateway as well.
 
 ```bash
 $ tp-link-cli sms
@@ -67,7 +69,7 @@ The `delete-id` command is a utility wrapping the index based delete.
 - `model/` - contains the data models related to sms commands,
 - `client/` - implements `request.go` for encryption, `client.go` for API returning model types.
 
-Acceptance tests:
+Acceptance tests (see Taskfile):
 
 - `go install .`
 - `go fmt ./...`
