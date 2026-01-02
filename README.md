@@ -76,3 +76,13 @@ Acceptance tests:
 - `tp-link-cli sms list {folder}` - list messages on router
 
 Folder is expected to be either "inbox" or "sent" (confirm with implementation).
+
+## Unimplemented
+
+The tool doesn't implement folder pagination. The device returns the
+latest 8 messages available for inbox/sent. It can be extended if you
+need this, say to provide a backup of the messages.
+
+## License
+
+Public domain.
