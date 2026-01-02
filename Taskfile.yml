@@ -16,7 +16,7 @@ tasks:
         echo "Last response sent: $LAST_SENT"
 
         if [ -z "$LAST_SENT" ] || [ "$LAST_SENT" -lt "$LAST_BRZINA" ]; then
-          ./tp-link-cli sms send {{.TARGET_NUMBER}} "{{.RESPONSE_MESSAGE}}" --host={{.ROUTER_HOST}} --auth={{.ROUTER_AUTH}}
+          ./tp-link-cli sms send {{.TARGET_NUMBER}} "{{.RESPONSE_MESSAGE}}"
           ./tp-link-cli sms send 0038631265642 "Quota router reset after 200G limit."
         else
           echo "Already responded to this message"
