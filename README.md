@@ -13,7 +13,9 @@ git clone github.com:titpetric/tp-link-cli.git
 cd tp-link-cli && go install .
 ```
 
-It's compatible with Archer MR600. It's intended to be used for scripting jobs.
+It's tested/compatible with Archer MR600. It's intended to be used for
+scripting jobs. I'm automating a challenge/response system based on ISP
+restrictions, but the CLI can be used as an SMS gateway.
 
 ```bash
 $ tp-link-cli sms
@@ -48,9 +50,15 @@ Examples:
   tp-link-cli sms list --host=192.168.1.100 --auth=admin:mypassword
 ```
 
-As understood, the deletion mechanism for the SMS inbox is based on
+You can provide `TP_LINK_CLI_HOST` and `TP_LINK_CLI_AUTH` as environment
+variables, avoiding the need to pass `--host` or `--auth` args.
+
+As implemented, the deletion mechanism for the SMS inbox is based on
 order. Rather than saying which message gets deleted, you pass the
 element from the list. As the element gets deleted, the order changes.
+The deletion is based on the session, so if you want to delete
+everything but the last 3 messages, you'd loop over `sms delete 4 ; sms
+list ; ...`.
 
 The `delete-id` command is a utility wrapping the index based delete.
 
