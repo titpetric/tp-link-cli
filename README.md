@@ -3,7 +3,7 @@
 This is a basic TP Link CLI.
 
 ```bash
-go install github.com/titpetric/tp-link-cli
+go install github.com/titpetric/tp-link-cli@latest
 ```
 
 Build from source:
